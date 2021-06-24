@@ -1,4 +1,5 @@
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { Store } from 'express-rate-limit';
 import { MemoryStore } from './MemoryStore';
 
 type RateLimitOptions = {
@@ -19,13 +20,13 @@ function configWithMillisecondsAndMaxRequests(
 }
 
 export class AxiosRateLimit {
-	private queue: { request: any; resolve(): void; reject(err: Error): void }[] = [];
+	private queue: { request: any; resolve(): void; reject(err?: {}): void }[] = [];
 
 	private perMilliseconds: number;
 
 	private maxRequests: number;
 
-	private store: MemoryStore;
+	private store: Store;
 
 	private instanceId = Math.random();
 
@@ -33,7 +34,7 @@ export class AxiosRateLimit {
 
 	maxDelayMs: number;
 
-	constructor(axios: AxiosInstance, options?: RateLimitOptions, store?: MemoryStore) {
+	constructor(axios: AxiosInstance, options?: RateLimitOptions, store?: Store) {
 		if (options) {
 			this.setRateLimitOptions(options, store);
 		}
@@ -66,7 +67,7 @@ export class AxiosRateLimit {
 		});
 	}
 
-	setRateLimitOptions(options: RateLimitOptions, store?: MemoryStore): void {
+	setRateLimitOptions(options: RateLimitOptions, store?: Store): void {
 		if (configWithMaxRPS(options)) {
 			this.setMaxRPS(options.maxRPS);
 			return;
@@ -139,7 +140,7 @@ export class AxiosRateLimit {
 
 		const key = this.keyGenerator(queued.request);
 
-		this.store.incr(key, (err: Error | undefined, current: number) => {
+		this.store.incr(key, (err, hits) => {
 			if (err) {
 				queued.reject(err);
 				return;
@@ -147,12 +148,12 @@ export class AxiosRateLimit {
 
 			let delay = 0;
 
-			if (current > this.maxRequests) {
-				const unboundedDelay = (current - this.maxRequests) * this.perMilliseconds;
+			if (hits && hits > this.maxRequests) {
+				const unboundedDelay = (hits - this.maxRequests) * this.perMilliseconds;
 				delay = Math.min(unboundedDelay, this.maxDelayMs);
 			}
 
-			if (current - 1 === this.maxRequests) {
+			if (hits && hits - 1 === this.maxRequests) {
 				if (process.env.DEBUG_AXIOS_RATE_LIMITER) {
 					console.info('limit reached');
 					// options.onLimitReached(req, res, options);

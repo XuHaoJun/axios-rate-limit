@@ -2,7 +2,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { Store } from 'express-rate-limit';
 import { MemoryStore } from './MemoryStore';
 
-type RateLimitOptions = {
+export type RateLimitOptions = {
 	keyGenerator?: (request: AxiosRequestConfig) => string;
 	maxDelayMs?: number;
 } & ({ maxRequests?: number; perMilliseconds?: number } | { maxRPS?: number });
